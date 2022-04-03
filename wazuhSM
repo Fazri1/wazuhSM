@@ -1,0 +1,102 @@
+#!/bin/bash
+
+if [[ $1 == "-h" ]]; then
+	echo '---------------------------------'
+	echo 'aktif -> untuk mengaktifkan'
+	echo 'mati -> untuk menonaktifkan'
+	echo 'cek -> untuk cek status'
+	echo ''
+elif [[ "$1" == "aktif" ]]; then
+	echo 'starting wazuh manager, kibana, elasticsearch, and filebeat.'
+	function shutdown() {
+	  tput cnorm # reset cursor
+	}
+	trap shutdown EXIT
+
+	function cursorBack() {
+	  echo -en "\033[$1D"
+	}
+
+	function spinner() {
+	  # make sure we use non-unicode character type locale
+	  # (that way it works for any locale as long as the font supports the characters)
+	  local LC_CTYPE=C
+
+	  local pid=$1 #Process Id of the previous running command
+
+	  local spin='/-\|'
+	  local charwidth=1
+
+	  local i=0
+	  tput civis # cursor invisible
+	  while kill -0 $pid 2>/dev/null; do
+	    local i=$(((i + $charwidth) % ${#spin}))
+	    printf "%s" "${spin:$i:$charwidth}"
+
+	    cursorBack 1
+	    sleep .1
+	  done
+	  tput cnorm
+	  wait $pid # capture exit code
+	  return $?
+	}
+	
+	(systemctl start wazuh-manager; systemctl start elasticsearch; systemctl start kibana; systemctl start filebeat) & #so that process has only one pid and running in the background
+	spinner $! #pid from previous background command being argument
+	echo 'done!'
+elif [[ "$1" == "mati" ]]; then
+	echo 'stopping wazuh manager, kibana, elasticsearch, and filebeat.'
+        function shutdown() {
+          tput cnorm # reset cursor
+        }
+        trap shutdown EXIT
+
+        function cursorBack() {
+          echo -en "\033[$1D"
+        }
+
+        function spinner() {
+          # make sure we use non-unicode character type locale
+          # (that way it works for any locale as long as the font supports the characters)
+          local LC_CTYPE=C
+
+          local pid=$1 #Process Id of the previous running command
+
+          local spin='/-\|'
+          local charwidth=1
+
+          local i=0
+          tput civis # cursor invisible
+          while kill -0 $pid 2>/dev/null; do
+            local i=$(((i + $charwidth) % ${#spin}))
+            printf "%s" "${spin:$i:$charwidth}"
+
+            cursorBack 1
+            sleep .1
+          done
+          tput cnorm
+          wait $pid # capture exit code
+          return $?
+        }
+
+	(systemctl stop wazuh-manager; systemctl stop elasticsearch; systemctl stop kibana; systemctl stop filebeat) & #so that process has only one pid and running in the background
+        spinner $! #pid from previous background command being argument
+        echo 'done'
+elif [[ $1 == "cek" ]]; then
+	RED='\033[0;31m' #Text color
+	NC='\033[0m' # No Color
+	echo ''
+	printf " ----------${RED}WAZUH MANAGER${NC}---------- \n"
+	systemctl status wazuh-manager
+	echo ''
+	printf " ----------${RED}ELASTICSEARCH${NC}---------- \n"
+        systemctl status elasticsearch
+	echo ''
+	printf " ----------${RED}FILEBEAT${NC}---------- \n"
+        systemctl status filebeat
+	echo ''
+	printf " ----------${RED}KIBANA${NC}---------- \n"
+        systemctl status kibana
+else
+	echo "Masukkan opsi yang benar. -h untuk mengetahuinya"
+fi
